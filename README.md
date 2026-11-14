@@ -1,16 +1,16 @@
 # FixFlow — Aizirek Akzhigitova
 
-FixFlow is intended to connect customer service requests, dispatch, and field work through one API and PostgreSQL database. This checkout contains an **early, incomplete implementation**, not the full product in the supplied master prompt. The operational slice currently in code is tenant-scoped authentication, request creation and listing, status transitions with history, a small API-backed web page, and a persistent Android command queue scaffold.
+FixFlow is intended to connect customer service requests, dispatch, and field work through one API and PostgreSQL database. This checkout contains an **incomplete implementation**, not the full product in the supplied master prompt. The API currently has tenant-scoped authentication, request management, assignment and technician status flows, estimate versions and approvals, inventory movements, and event history. The web client is still a small API-backed request screen; the Android code remains a scaffold.
 
 ## Current status
 
 | Component | Implemented in this checkout | Not implemented yet |
 |---|---|---|
-| Backend | FastAPI, PostgreSQL async connection, JWT login, role checks, tenant filters, request create/list/status/history, request idempotency, initial Alembic migration, deterministic demo seed | Most domain entities and workflows, property/equipment/category models, assignments and schedule conflict locking, estimates/versioning, inventory, SLA, maintenance, file storage, notifications, audit, live updates, disabled-org enforcement, full integration tests |
-| Web | Responsive Russian/English landing and request screen backed by API calls; server-side list filtering/paging API | Separate role workspaces and the rest of the requested pages, complete localization and status translations, analytics, live updates, accessibility review, full test coverage |
+| Backend | FastAPI, PostgreSQL async connection, JWT login, organization isolation, requests, assignments and technician response, estimate versions/approval, inventory movements, notes, notifications, audit records, idempotency, event history, Alembic migration, deterministic demo seed | SLA and maintenance workers, protected file upload/download, user/property/equipment/category management endpoints, feedback, live updates, full PostgreSQL concurrency tests |
+| Web | Responsive Russian/English sign-in and customer request screen; API list filtering/pagination and localized request status labels | Dispatcher/admin/technician workspaces, assignment/estimate/inventory pages, profile/settings/analytics, full error localization, live updates, accessibility review, browser build and tests |
 | Android | Flutter source scaffold and SQLite persistent outbox primitives | Login/API sync UI, assigned task workflow, notes/photos/materials, conflict resolution, notifications, Android project wrapper and APK |
 
-No APK, demonstration video, or deployable production build is included.
+No APK, demonstration video, or deployable production build is included. Docker Desktop is installed, but this session receives access denied from its engine pipe, so the Compose services have not been started here.
 
 ## Requirements
 
@@ -33,7 +33,7 @@ Replace both placeholder secrets in `.env`, then run:
 docker compose up --build
 ```
 
-The database uses a persistent named volume. Migrations run after PostgreSQL reports healthy. Open the web application at <http://localhost:3000>; API documentation is at <http://localhost:8000/api/v1/docs>. Liveness is <http://localhost:8000/health/live>.
+The database uses a persistent named volume. Migrations run after PostgreSQL reports healthy. Open the web application at <http://localhost:3000>; API documentation is at <http://localhost:8000/api/v1/docs>. Health checks are at <http://localhost:8000/health/live> and <http://localhost:8000/health/ready>.
 
 Seed the demo data in a separate terminal after startup:
 

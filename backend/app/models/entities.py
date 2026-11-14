@@ -3,7 +3,16 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Index, String, Text, Uuid
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    Enum,
+    ForeignKey,
+    Index,
+    String,
+    Text,
+    Uuid,
+)
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from app.domain import RequestStatus, Role
@@ -44,6 +53,10 @@ class ServiceRequest(Base):
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
     organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id"), index=True)
     customer_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), index=True)
+    property_id: Mapped[UUID | None] = mapped_column(ForeignKey("properties.id"))
+    asset_id: Mapped[UUID | None] = mapped_column(ForeignKey("assets.id"))
+    category_id: Mapped[UUID | None] = mapped_column(ForeignKey("categories.id"))
+    desired_visit_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     title: Mapped[str] = mapped_column(String(120))
     description: Mapped[str] = mapped_column(Text)
     priority: Mapped[str] = mapped_column(String(16), default="NORMAL")

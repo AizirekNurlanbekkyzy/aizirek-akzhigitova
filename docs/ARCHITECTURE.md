@@ -6,9 +6,9 @@ The system is planned as a web client and Android client calling one FastAPI ser
 
 `organizations` own `users`, `service_requests`, `request_events`, and `idempotency_records`. Request and event reads include organization predicates. A status update locks the request row before applying the transition and writing its history event in the same transaction. A composite organization/key uniqueness constraint makes request creation retries durable.
 
-## Planned domain expansion
+## Domain schema
 
-Technicians/skills, properties/assets, assignments, estimates and immutable estimate versions, inventory and movements, SLA events, maintenance occurrences, notes/attachments, notifications, and audit records remain to be modeled. Schedule and inventory concurrency require PostgreSQL transactions with exclusion/row locks and conditional stock updates respectively. These controls are not present yet.
+The initial schema now defines memberships, technicians and skills, properties/assets/categories, assignment windows, estimate versions and lines, inventory and movements, material use, SLA clocks/events, maintenance plans/occurrences, notes, protected-attachment metadata, notifications, audit logs, and customer feedback. Assignments, estimates, stock operations, notes, notifications, and audit writes have API workflows covered by SQLite integration tests. SLA and maintenance processing, attachment transport, and feedback workflows remain unfinished. SQLite tests do not verify PostgreSQL locking or concurrent behavior.
 
 ## Data conventions
 

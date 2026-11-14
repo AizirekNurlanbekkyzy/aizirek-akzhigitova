@@ -21,6 +21,33 @@ class RequestStatus(StrEnum):
     REOPENED = "REOPENED"
 
 
+class EstimateStatus(StrEnum):
+    DRAFT = "DRAFT"
+    AWAITING_APPROVAL = "AWAITING_APPROVAL"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
+    SUPERSEDED = "SUPERSEDED"
+
+
+class SlaStatus(StrEnum):
+    ON_TRACK = "ON_TRACK"
+    AT_RISK = "AT_RISK"
+    OVERDUE = "OVERDUE"
+
+
+class AssignmentStatus(StrEnum):
+    OFFERED = "OFFERED"
+    ACCEPTED = "ACCEPTED"
+    DECLINED = "DECLINED"
+    CANCELED = "CANCELED"
+    COMPLETED = "COMPLETED"
+
+
+class MaintenanceFrequency(StrEnum):
+    WEEKLY = "WEEKLY"
+    MONTHLY = "MONTHLY"
+
+
 TRANSITIONS: dict[RequestStatus, set[RequestStatus]] = {
     RequestStatus.SUBMITTED: {RequestStatus.TRIAGED, RequestStatus.CANCELED},
     RequestStatus.TRIAGED: {RequestStatus.SCHEDULED, RequestStatus.CANCELED},

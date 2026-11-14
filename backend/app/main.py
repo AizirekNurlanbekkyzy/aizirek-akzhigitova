@@ -1,10 +1,12 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api import auth, requests
-from app.core.db import engine
+from app.api import assignments, auth, estimates, inventory, notes, notifications, requests
+from app.core.db import engine, get_session
 
 
 @asynccontextmanager
@@ -29,8 +31,19 @@ app.add_middleware(
 )
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(requests.router, prefix="/api/v1")
+app.include_router(inventory.router, prefix="/api/v1")
+app.include_router(estimates.router, prefix="/api/v1")
+app.include_router(assignments.router, prefix="/api/v1")
+app.include_router(notifications.router, prefix="/api/v1")
+app.include_router(notes.router, prefix="/api/v1")
 
 
 @app.get("/health/live", tags=["health"])
 async def live() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/health/ready", tags=["health"])
+async def ready(session: AsyncSession = Depends(get_session)) -> dict[str, str]:
+    await session.execute(text("SELECT 1"))
+    return {"status": "ready"}
