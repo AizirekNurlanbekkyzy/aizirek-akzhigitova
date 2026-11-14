@@ -37,7 +37,7 @@ From this directory, after Docker Desktop is running and `.env` has been created
 docker compose up --build
 ```
 
-The database uses a persistent named volume. Migrations run after PostgreSQL reports healthy. Open the web application at <http://localhost:3000>; API documentation is at <http://localhost:8000/api/v1/docs>. Health checks are at <http://localhost:8000/health/live> and <http://localhost:8000/health/ready>.
+The database uses a persistent named volume. Migrations run after PostgreSQL reports healthy. Open the web application at <http://localhost:3000>; API documentation is at <http://localhost:8001/api/v1/docs>. Health checks are at <http://localhost:8001/health/live> and <http://localhost:8001/health/ready>.
 
 Seed the demo data in a separate terminal after startup:
 
@@ -51,7 +51,7 @@ Seed prints the two organization IDs and demo password `FixFlow-Demo-Only-2026!`
 
 Backend: set `DATABASE_URL`, a `JWT_SECRET` of at least 32 random bytes, and `APP_ENV=development` in the shell, then from `backend/` run `uv sync`, `uv run alembic upgrade head`, and `uv run uvicorn app.main:app --reload`.
 
-Web: from `web/`, run `pnpm install --frozen-lockfile`, set `NEXT_PUBLIC_API_URL` if the API is not at `http://localhost:8000/api/v1`, then run `pnpm dev`. The browser sends requests directly to this API URL; configure `CORS_ORIGINS` if the web host changes.
+Web: from `web/`, run `pnpm install --frozen-lockfile`, set `NEXT_PUBLIC_API_URL` if the API is not at `http://localhost:8001/api/v1`, then run `pnpm dev`. The browser sends requests directly to this API URL; configure `CORS_ORIGINS` if the web host changes.
 
 Mobile source is under `mobile/`. Flutter commands cannot be reported as successful until Flutter and Android SDK are installed.
 
