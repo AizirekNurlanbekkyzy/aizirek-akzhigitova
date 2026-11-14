@@ -9,6 +9,7 @@ export type RequestItem = {
   priority: string;
   status: string;
   created_at: string;
+  desired_visit_at?: string | null;
   property_id?: string | null;
   asset_id?: string | null;
   category_id?: string | null;
@@ -63,7 +64,7 @@ export async function getRequests(token: string, search = ""): Promise<RequestIt
 }
 
 export function createRequest(token: string, input: {
-  title: string; description: string; priority: string; property_id?: string; asset_id?: string; category_id?: string;
+  title: string; description: string; priority: string; desired_visit_at?: string; property_id?: string; asset_id?: string; category_id?: string;
 }, idempotencyKey: string) {
   return call<RequestItem>("/requests", token, {
     method: "POST", headers: { "Idempotency-Key": idempotencyKey }, body: JSON.stringify(input),
