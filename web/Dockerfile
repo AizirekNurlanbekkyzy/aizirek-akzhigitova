@@ -22,4 +22,4 @@ COPY --from=build /app/.next ./.next
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/package.json ./package.json
 EXPOSE 3000
-CMD ["pnpm", "run", "start", "--", "-H", "0.0.0.0"]
+CMD ["pnpm", "run", "start"]
