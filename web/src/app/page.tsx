@@ -22,6 +22,7 @@ const text: Record<Language, Record<string, string>> = {
     title: "Краткое название", description: "Опишите проблему (20–3000 символов)", create: "Создать",
     priorityLow: "Низкий", priorityNormal: "Обычный", priorityHigh: "Высокий",
     visitTime: "Желаемое время визита",
+    address: "Адрес обслуживания",
     search: "Поиск по заявкам", refresh: "Обновить", empty: "Пока нет данных",
     status: "Статус", priority: "Приоритет", created: "Создана", action: "Действие",
     triage: "Взять в работу диспетчерам", cancel: "Отменить", save: "Сохранить",
@@ -46,6 +47,7 @@ const text: Record<Language, Record<string, string>> = {
     description: "Describe the issue (20–3000 characters)", create: "Create", search: "Search requests",
     priorityLow: "Low", priorityNormal: "Normal", priorityHigh: "High",
     visitTime: "Preferred visit time",
+    address: "Service address",
     refresh: "Refresh", empty: "No data yet", status: "Status", priority: "Priority", created: "Created",
     action: "Action", triage: "Move to triage", cancel: "Cancel", save: "Save", newEstimate: "Create estimate",
     request: "Request", amount: "Price, tyiyn", line: "Work description", submitEstimate: "Send for approval",
@@ -163,7 +165,8 @@ export default function Home() {
     event.preventDefault(); const form = event.currentTarget; const data = new FormData(form);
     const visitTime = String(data.get("desired_visit_at") || "");
     const payload = {
-      title: String(data.get("title")), description: String(data.get("description")), priority: String(data.get("priority")),
+      title: String(data.get("title")), description: String(data.get("description")), service_address: String(data.get("service_address") || "").trim() || undefined,
+      priority: String(data.get("priority")),
       ...(visitTime ? { desired_visit_at: new Date(visitTime).toISOString() } : {}),
     };
     const payloadText = JSON.stringify(payload);
@@ -203,7 +206,7 @@ export default function Home() {
       {section === "dashboard" && <><div className="welcome-row"><div><h2>{t.welcome}, {profile.name.split(" ")[0]}</h2><p className="muted">{language === "ru" ? "Текущая картина по вашим сервисным операциям." : "A live view of your service operations."}</p></div></div><div className="stats-grid"><Stat label={t.totalRequests} value={requests.length} icon="↗"/><Stat label={t.openRequests} value={requests.filter((r) => !["COMPLETED", "CLOSED", "CANCELED"].includes(r.status)).length} icon="◷"/><Stat label={t.pendingEstimates} value={estimates.filter((e) => e.status === "AWAITING_APPROVAL").length} icon="◇"/>{isManager && <Stat label={t.lowStock} value={inventory.filter((i) => i.quantity_on_hand <= i.minimum_quantity).length} icon="▤"/>}</div><section className="card section-card"><div className="section-heading"><div><h2>{t.requests}</h2><p className="muted">{language === "ru" ? "Последние обновления из API" : "Latest updates from the API"}</p></div><button className="button secondary" onClick={() => setSection(profile.role === "TECHNICIAN" ? "tasks" : "requests")}>{t.requests} →</button></div><RequestTable items={requests.slice(0, 5)} language={language} labels={t} /></section></>}
       {section === "requests" && <div className="content-grid"><section className="card section-card"><div className="section-heading"><h2>{t.requests}</h2><input className="input search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t.search}/></div><RequestTable items={visibleRequests} language={language} labels={t} /><p className="muted small-text">{visibleRequests.length} / {requests.length}</p>
         {isManager && <div className="request-actions">{requests.filter((r) => r.status === "SUBMITTED").slice(0, 8).map((r) => <button key={r.id} className="button secondary" onClick={() => void act(() => changeRequestStatus(token, r.id, "TRIAGED"))}>{t.triage}: {r.title}</button>)}</div>}
-      </section>{profile.role === "CUSTOMER" && <form className="card form-card" onSubmit={createRequestForm}><p className="eyebrow">SERVICE DESK</p><h2>{t.newRequest}</h2><label>{t.title}<input className="input" name="title" minLength={5} maxLength={120} required /></label><label>{t.description}<textarea className="input" name="description" minLength={20} maxLength={3000} rows={5} required /></label><label>{t.priority}<select className="input" name="priority" defaultValue="NORMAL"><option value="LOW">{t.priorityLow}</option><option value="NORMAL">{t.priorityNormal}</option><option value="HIGH">{t.priorityHigh}</option></select></label><label>{t.visitTime}<input className="input" name="desired_visit_at" type="datetime-local" /></label><button className="button primary" disabled={busy}>{t.create} <span>↗</span></button></form>}</div>}
+      </section>{profile.role === "CUSTOMER" && <form className="card form-card" onSubmit={createRequestForm}><p className="eyebrow">SERVICE DESK</p><h2>{t.newRequest}</h2><label>{t.title}<input className="input" name="title" minLength={5} maxLength={120} required /></label><label>{t.description}<textarea className="input" name="description" minLength={20} maxLength={3000} rows={5} required /></label><label>{t.address}<input className="input" name="service_address" maxLength={500} autoComplete="street-address" required /></label><label>{t.priority}<select className="input" name="priority" defaultValue="NORMAL"><option value="LOW">{t.priorityLow}</option><option value="NORMAL">{t.priorityNormal}</option><option value="HIGH">{t.priorityHigh}</option></select></label><label>{t.visitTime}<input className="input" name="desired_visit_at" type="datetime-local" /></label><button className="button primary" disabled={busy}>{t.create} <span>↗</span></button></form>}</div>}
       {section === "estimates" && <EstimateSection language={language} token={token} role={profile.role} requests={requests} estimates={estimates} act={act} t={t} />}
       {section === "technicians" && <section className="card section-card"><div className="section-heading"><h2>{t.technicians}</h2><span className="badge">{technicians.length}</span></div>{technicians.length ? <div className="team-grid">{technicians.map((tech) => <article className="team-card" key={tech.id}><div className="avatar large">{tech.name.slice(0, 1)}</div><div><strong>{tech.name}</strong><p className="muted">{tech.active ? (language === "ru" ? "Активен" : "Active") : (language === "ru" ? "Неактивен" : "Inactive")}</p></div><span className="badge">{tech.id.slice(0, 8)}</span></article>)}</div> : <p className="muted">{t.noTechs}</p>}</section>}
       {section === "schedule" && <ScheduleSection language={language} token={token} requests={requests} technicians={technicians} assignments={assignments} act={act} t={t} />}
@@ -219,7 +222,7 @@ function Stat({ label, value, icon }: { label: string; value: number; icon: stri
 
 function RequestTable({ items, language, labels }: { items: RequestItem[]; language: Language; labels: Record<string, string> }) {
   if (!items.length) return <div className="empty-state"><span>○</span><p>{labels.empty}</p></div>;
-  return <div className="table-wrap"><table className="data-table"><thead><tr><th>{labels.request || labels.title}</th><th>{labels.status}</th><th>{labels.priority}</th><th>{labels.visitTime}</th><th>{labels.created}</th></tr></thead><tbody>{items.map((item) => <tr key={item.id}><td><strong>{item.title}</strong><small>{item.description}</small></td><td><span className={`badge status-${item.status.toLowerCase()}`}>{statusText[language][item.status] || item.status}</span></td><td>{item.priority}</td><td>{item.desired_visit_at ? new Date(item.desired_visit_at).toLocaleString(language === "ru" ? "ru-RU" : "en-US") : "—"}</td><td>{new Date(item.created_at).toLocaleDateString(language === "ru" ? "ru-RU" : "en-US")}</td></tr>)}</tbody></table></div>;
+  return <div className="table-wrap"><table className="data-table"><thead><tr><th>{labels.request || labels.title}</th><th>{labels.address}</th><th>{labels.status}</th><th>{labels.priority}</th><th>{labels.visitTime}</th><th>{labels.created}</th></tr></thead><tbody>{items.map((item) => <tr key={item.id}><td><strong>{item.title}</strong><small>{item.description}</small></td><td>{item.service_address || "—"}</td><td><span className={`badge status-${item.status.toLowerCase()}`}>{statusText[language][item.status] || item.status}</span></td><td>{item.priority}</td><td>{item.desired_visit_at ? new Date(item.desired_visit_at).toLocaleString(language === "ru" ? "ru-RU" : "en-US") : "—"}</td><td>{new Date(item.created_at).toLocaleDateString(language === "ru" ? "ru-RU" : "en-US")}</td></tr>)}</tbody></table></div>;
 }
 
 function EstimateSection({ language, token, role, requests, estimates, act, t }: {

@@ -9,6 +9,7 @@ from app.models.entities import RequestStatus
 class RequestCreate(BaseModel):
     title: str = Field(min_length=5, max_length=120)
     description: str = Field(min_length=20, max_length=3000)
+    service_address: str | None = Field(default=None, max_length=500)
     priority: str = Field(default="NORMAL", pattern="^(LOW|NORMAL|HIGH)$")
     property_id: UUID | None = None
     asset_id: UUID | None = None
@@ -32,6 +33,7 @@ class RequestOut(BaseModel):
     priority: str
     status: RequestStatus
     created_at: datetime
+    service_address: str | None = None
     property_id: UUID | None = None
     asset_id: UUID | None = None
     category_id: UUID | None = None

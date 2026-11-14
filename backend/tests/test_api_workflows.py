@@ -69,6 +69,7 @@ async def test_idempotent_request_retry_returns_the_same_record(api_client) -> N
     payload = {
         "title": "Heating issue",
         "description": "The apartment heating has stopped working.",
+        "service_address": "12 Example Street, Bishkek, apartment 8",
     }
     first = await client.post("/api/v1/requests", headers=headers, json=payload)
     replay = await client.post("/api/v1/requests", headers=headers, json=payload)
@@ -78,6 +79,7 @@ async def test_idempotent_request_retry_returns_the_same_record(api_client) -> N
         json={**payload, "title": "Different heating issue"},
     )
     assert first.status_code == replay.status_code == 201
+    assert first.json()["service_address"] == payload["service_address"]
     assert first.json()["id"] == replay.json()["id"]
     assert changed.status_code == 409
 

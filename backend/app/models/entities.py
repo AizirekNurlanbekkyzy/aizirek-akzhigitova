@@ -53,6 +53,7 @@ class ServiceRequest(Base):
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
     organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id"), index=True)
     customer_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), index=True)
+    service_address: Mapped[str | None] = mapped_column(String(500))
     property_id: Mapped[UUID | None] = mapped_column(ForeignKey("properties.id"))
     asset_id: Mapped[UUID | None] = mapped_column(ForeignKey("assets.id"))
     category_id: Mapped[UUID | None] = mapped_column(ForeignKey("categories.id"))
