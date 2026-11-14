@@ -1,4 +1,6 @@
 node_modules
 .next
 .bun-tmp
+.bun-cache
+.pnpm-store
 .env*

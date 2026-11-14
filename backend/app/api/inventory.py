@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.auth import current_user
 from app.core.db import get_session
 from app.domain import Role
-from app.models.domain_entities import InventoryItem, StockMovement
+from app.models.domain_entities import AuditLog, InventoryItem, StockMovement
 from app.models.entities import User
 from app.schemas.inventory import (
     InventoryItemCreate,
@@ -40,6 +40,17 @@ async def create_item(
     item = InventoryItem(organization_id=user.organization_id, **data.model_dump())
     session.add(item)
     try:
+        await session.flush()
+        session.add(
+            AuditLog(
+                organization_id=user.organization_id,
+                actor_id=user.id,
+                action="inventory.item_created",
+                resource_type="inventory_item",
+                resource_id=str(item.id),
+                after={"sku": item.sku, "name": item.name},
+            )
+        )
         await session.commit()
     except IntegrityError:
         await session.rollback()
@@ -114,6 +125,21 @@ async def record_movement(
     )
     item.quantity_on_hand = next_quantity
     session.add(movement)
+    session.add(
+        AuditLog(
+            organization_id=user.organization_id,
+            actor_id=user.id,
+            action="inventory.stock_moved",
+            resource_type="inventory_item",
+            resource_id=str(item.id),
+            before={"quantity_on_hand": item.quantity_on_hand - data.quantity_delta},
+            after={
+                "quantity_on_hand": next_quantity,
+                "quantity_delta": data.quantity_delta,
+                "reason": data.reason,
+            },
+        )
+    )
     try:
         await session.commit()
     except IntegrityError:

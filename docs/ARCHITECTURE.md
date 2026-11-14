@@ -1,6 +1,6 @@
 # Architecture
 
-The system is planned as a web client and Android client calling one FastAPI service backed by PostgreSQL. In this initial implementation, the API owns authentication, tenant scope, request transitions, and persistence. Web requests carry a bearer token; authenticated API queries derive organization and role from the server-verified token and user row. Customer request listings additionally filter by the caller's user ID.
+The web client calls one FastAPI service backed by PostgreSQL. The API owns authentication, tenant scope, request transitions, and persistence. Web requests carry a bearer token; authenticated API queries derive organization and role from the server-verified token and user row. Customers see their own requests and technicians see only requests with their active assignments.
 
 ## Current data model
 

@@ -11,10 +11,20 @@ async def test_health_and_openapi_expose_the_joined_api(api_client) -> None:
     live = await client.get("/health/live")
     ready = await client.get("/health/ready")
     spec = await client.get("/api/v1/openapi.json")
+    cors = await client.options(
+        "/api/v1/requests",
+        headers={
+            "Origin": "http://localhost:3000",
+            "Access-Control-Request-Method": "GET",
+            "Access-Control-Request-Headers": "authorization",
+        },
+    )
     assert live.json() == {"status": "ok"}
     assert ready.json() == {"status": "ready"}
     assert "/api/v1/requests/{request_id}/notes" in spec.json()["paths"]
     assert "/api/v1/assignments/{assignment_id}/accept" in spec.json()["paths"]
+    assert cors.status_code == 200
+    assert cors.headers["access-control-allow-origin"] == "http://localhost:3000"
 
 
 async def test_customer_cannot_read_another_organization_request(api_client) -> None:
@@ -144,6 +154,88 @@ async def test_unknown_organization_cannot_authenticate(api_client) -> None:
     assert response.status_code == 401
 
 
+async def test_customer_registration_login_and_deduplication(api_client) -> None:
+    client, org_a, _, _ = api_client
+    payload = {
+        "email": "New.Customer@Tenant-A.Example.com",
+        "name": "New Customer",
+        "password": "strong-password-12345",
+        "organization_id": str(org_a),
+    }
+    registered = await client.post("/api/v1/auth/register", json=payload)
+    duplicate = await client.post("/api/v1/auth/register", json=payload)
+    authenticated = await client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": payload["email"],
+            "password": payload["password"],
+            "organization_id": str(org_a),
+        },
+    )
+    assert registered.status_code == 201
+    assert registered.json()["role"] == "CUSTOMER"
+    assert duplicate.status_code == 409
+    assert authenticated.status_code == 200
+    profile = await client.get(
+        "/api/v1/auth/me",
+        headers={"Authorization": f"Bearer {authenticated.json()['access_token']}"},
+    )
+    assert profile.json()["email"] == payload["email"].lower()
+
+
+async def test_role_permissions_and_admin_audit_feed(api_client) -> None:
+    client, org_a, org_b, _ = api_client
+    customer = await login(client, "customer-a@tenant-a.example.com", org_a)
+    dispatcher = await login(client, "dispatcher-a@tenant-a.example.com", org_a)
+    admin = await login(client, "admin-a@tenant-a.example.com", org_a)
+    technician = await login(client, "technician-a@tenant-a.example.com", org_a)
+
+    def headers(token: str) -> dict[str, str]:
+        return {"Authorization": f"Bearer {token}"}
+
+    created = await client.post(
+        "/api/v1/requests",
+        headers={**headers(customer), "Idempotency-Key": "audit-role-request-001"},
+        json={
+            "title": "Check water pump",
+            "description": "The water pump vibrates loudly at night.",
+        },
+    )
+    assert created.status_code == 201
+    assert (
+        await client.get("/api/v1/inventory/items", headers=headers(customer))
+    ).status_code == 403
+    assert (
+        await client.get("/api/v1/inventory/items", headers=headers(technician))
+    ).status_code == 403
+    assert (await client.get("/api/v1/audit", headers=headers(dispatcher))).status_code == 403
+    audit = await client.get("/api/v1/audit", headers=headers(admin))
+    assert any(event["resource_id"] == created.json()["id"] for event in audit.json())
+    stock_item = await client.post(
+        "/api/v1/inventory/items",
+        headers=headers(admin),
+        json={"sku": "AUDIT-01", "name": "Audit test part", "unit": "piece"},
+    )
+    await client.post(
+        f"/api/v1/inventory/items/{stock_item.json()['id']}/movements",
+        headers={**headers(admin), "Idempotency-Key": "audit-stock-in-001"},
+        json={"quantity_delta": 2, "reason": "Audit trail check"},
+    )
+    audit = await client.get("/api/v1/audit", headers=headers(admin))
+    actions = {event["action"] for event in audit.json()}
+    assert {"request.created", "inventory.item_created", "inventory.stock_moved"} <= actions
+
+    customer_b = await login(client, "customer-b@tenant-b.example.com", org_b)
+    audit_b = await client.get(
+        "/api/v1/audit",
+        headers=headers(await login(client, "customer-b@tenant-b.example.com", org_b)),
+    )
+    assert (
+        await client.get(f"/api/v1/requests/{created.json()['id']}", headers=headers(customer_b))
+    ).status_code == 404
+    assert audit_b.status_code == 403
+
+
 async def test_inventory_idempotency_and_nonnegative_stock(api_client) -> None:
     client, org_a, _, _ = api_client
     token = await login(client, "admin-a@tenant-a.example.com", org_a)
@@ -212,6 +304,9 @@ async def test_estimate_versions_are_immutable_and_require_customer_approval(api
     first = await client.post(
         f"/api/v1/requests/{request_id}/estimates", headers=estimate_headers, json=draft
     )
+    hidden_draft = await client.get(
+        f"/api/v1/requests/{request_id}/estimates", headers=customer_headers
+    )
     replay = await client.post(
         f"/api/v1/requests/{request_id}/estimates", headers=estimate_headers, json=draft
     )
@@ -253,6 +348,7 @@ async def test_estimate_versions_are_immutable_and_require_customer_approval(api
     )
 
     assert first.status_code == replay.status_code == 201
+    assert hidden_draft.json() == []
     assert replay.json()["id"] == estimate_id
     assert first.json()["total_tyiyn"] == 2500
     assert submitted.json()["status"] == "AWAITING_APPROVAL"
@@ -292,6 +388,9 @@ async def test_schedule_accept_and_complete_technician_assignment(api_client) ->
     )
     profile = await client.get("/api/v1/technicians/me", headers=technician_headers)
     technician_id = profile.json()["id"]
+    team = await client.get("/api/v1/technicians", headers=dispatch_headers)
+    assert team.status_code == 200 and team.json()[0]["id"] == technician_id
+    assert (await client.get("/api/v1/technicians", headers=customer_headers)).status_code == 403
     start = (datetime.now(UTC) + timedelta(days=2)).replace(
         hour=4, minute=0, second=0, microsecond=0
     )
@@ -306,6 +405,9 @@ async def test_schedule_accept_and_complete_technician_assignment(api_client) ->
         json=window,
     )
     offered = assignment.json()["id"]
+    board = await client.get("/api/v1/assignments", headers=dispatch_headers)
+    assert board.status_code == 200
+    assert board.json()[0]["request_title"] == "Replace ceiling light"
     technician_notices = await client.get("/api/v1/notifications", headers=technician_headers)
     assert technician_notices.json()["items"][0]["event_key"] == f"assignment.offered:{offered}"
     overlap_request = await client.post(
@@ -317,6 +419,13 @@ async def test_schedule_accept_and_complete_technician_assignment(api_client) ->
         },
     )
     overlap_id = overlap_request.json()["id"]
+    technician_requests = await client.get("/api/v1/requests", headers=technician_headers)
+    hidden_request = await client.get(f"/api/v1/requests/{overlap_id}", headers=technician_headers)
+    hidden_estimates = await client.get(
+        f"/api/v1/requests/{overlap_id}/estimates", headers=technician_headers
+    )
+    assert [item["id"] for item in technician_requests.json()["items"]] == [request_id]
+    assert hidden_request.status_code == hidden_estimates.status_code == 404
     await client.patch(
         f"/api/v1/requests/{overlap_id}/status",
         headers=dispatch_headers,

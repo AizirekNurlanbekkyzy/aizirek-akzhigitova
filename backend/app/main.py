@@ -5,7 +5,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api import assignments, auth, estimates, inventory, notes, notifications, requests
+from app.api import assignments, audit, auth, estimates, inventory, notes, notifications, requests
+from app.core.config import settings
 from app.core.db import engine, get_session
 
 
@@ -25,11 +26,12 @@ app = FastAPI(
 )
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=[origin.strip() for origin in settings.cors_origins.split(",") if origin.strip()],
     allow_methods=["*"],
     allow_headers=["Authorization", "Content-Type", "Idempotency-Key"],
 )
 app.include_router(auth.router, prefix="/api/v1")
+app.include_router(audit.router, prefix="/api/v1")
 app.include_router(requests.router, prefix="/api/v1")
 app.include_router(inventory.router, prefix="/api/v1")
 app.include_router(estimates.router, prefix="/api/v1")

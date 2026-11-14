@@ -22,6 +22,7 @@ from app.models.domain_entities import (
 )
 from app.models.entities import Organization, RequestEvent, ServiceRequest, User
 from app.schemas.assignments import (
+    AssignmentBoardOut,
     AssignmentCreate,
     AssignmentDecline,
     AssignmentOut,
@@ -32,6 +33,67 @@ from app.services.notifications import enqueue_notifications
 router = APIRouter(tags=["assignments"])
 DISPATCH_ROLES = {Role.DISPATCHER, Role.ORGANIZATION_ADMIN}
 BUSY_ASSIGNMENT_STATES = {AssignmentStatus.OFFERED, AssignmentStatus.ACCEPTED}
+
+
+@router.get("/technicians")
+async def list_technicians(
+    user: User = Depends(current_user), session: AsyncSession = Depends(get_session)
+) -> list[dict[str, str | bool]]:
+    if user.role not in DISPATCH_ROLES:
+        raise HTTPException(403, "Role cannot list technicians")
+    rows = (
+        await session.execute(
+            select(Technician, User)
+            .join(User, User.id == Technician.user_id)
+            .where(
+                Technician.organization_id == user.organization_id,
+                Technician.active.is_(True),
+                User.organization_id == user.organization_id,
+                User.active.is_(True),
+            )
+            .order_by(User.name)
+        )
+    ).all()
+    return [
+        {"id": str(tech.id), "user_id": str(person.id), "name": person.name, "active": tech.active}
+        for tech, person in rows
+    ]
+
+
+@router.get("/assignments", response_model=list[AssignmentBoardOut])
+async def assignment_board(
+    user: User = Depends(current_user), session: AsyncSession = Depends(get_session)
+) -> list[AssignmentBoardOut]:
+    if user.role not in DISPATCH_ROLES:
+        raise HTTPException(403, "Role cannot view the dispatch schedule")
+    rows = (
+        await session.execute(
+            select(Assignment, ServiceRequest.title, User.name)
+            .join(ServiceRequest, ServiceRequest.id == Assignment.request_id)
+            .join(Technician, Technician.id == Assignment.technician_id)
+            .join(User, User.id == Technician.user_id)
+            .where(
+                Assignment.organization_id == user.organization_id,
+                ServiceRequest.organization_id == user.organization_id,
+                Technician.organization_id == user.organization_id,
+            )
+            .order_by(Assignment.starts_at.desc())
+        )
+    ).all()
+    return [
+        AssignmentBoardOut(
+            id=assignment.id,
+            request_id=assignment.request_id,
+            technician_id=assignment.technician_id,
+            starts_at=assignment.starts_at,
+            ends_at=assignment.ends_at,
+            status=assignment.status,
+            created_at=assignment.created_at,
+            request_title=title,
+            technician_name=name,
+        )
+        for assignment, title, name in rows
+    ]
 
 
 @router.get("/technicians/me", response_model=TechnicianProfileOut)

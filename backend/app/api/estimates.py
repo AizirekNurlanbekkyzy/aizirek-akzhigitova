@@ -11,13 +11,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.auth import current_user
 from app.core.db import get_session
-from app.domain import EstimateStatus, Role
+from app.domain import AssignmentStatus, EstimateStatus, Role
 from app.models.domain_entities import (
+    Assignment,
     AuditLog,
     Estimate,
     EstimateEvent,
     EstimateLine,
     InventoryItem,
+    Technician,
 )
 from app.models.entities import IdempotencyRecord, ServiceRequest, User
 from app.schemas.estimates import (
@@ -40,6 +42,26 @@ async def _request_for_user(request_id: UUID, user: User, session: AsyncSession)
     ]
     if user.role == Role.CUSTOMER:
         conditions.append(ServiceRequest.customer_id == user.id)
+    elif user.role == Role.TECHNICIAN:
+        conditions.append(
+            ServiceRequest.id.in_(
+                select(Assignment.request_id)
+                .join(Technician, Technician.id == Assignment.technician_id)
+                .where(
+                    Assignment.organization_id == user.organization_id,
+                    Assignment.status.in_(
+                        {
+                            AssignmentStatus.OFFERED,
+                            AssignmentStatus.ACCEPTED,
+                            AssignmentStatus.COMPLETED,
+                        }
+                    ),
+                    Technician.organization_id == user.organization_id,
+                    Technician.user_id == user.id,
+                    Technician.active.is_(True),
+                )
+            )
+        )
     request = await session.scalar(select(ServiceRequest).where(*conditions))
     if request is None:
         raise HTTPException(404, "Request not found")
@@ -473,6 +495,8 @@ async def list_estimates(
             .order_by(Estimate.version)
         )
     ).all()
+    if user.role == Role.CUSTOMER:
+        estimates = [estimate for estimate in estimates if estimate.status != EstimateStatus.DRAFT]
     return [await _response(session, estimate) for estimate in estimates]
 
 
@@ -490,6 +514,7 @@ async def estimate_history(
             Estimate.organization_id == user.organization_id,
             ServiceRequest.organization_id == user.organization_id,
             *([ServiceRequest.customer_id == user.id] if user.role == Role.CUSTOMER else []),
+            *([Estimate.status != EstimateStatus.DRAFT] if user.role == Role.CUSTOMER else []),
         )
     )
     if estimate is None:

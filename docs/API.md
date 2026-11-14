@@ -4,6 +4,9 @@ All implemented routes use `/api/v1`. Interactive OpenAPI documentation is serve
 
 ## Authentication
 
+- `POST /api/v1/auth/register` — create a customer account in an existing active organization; password must be at least 12 characters. Public registration cannot assign staff roles.
+- `GET /api/v1/auth/me` — current authenticated user profile, including role.
+
 `POST /api/v1/auth/login`
 
 ```json
@@ -15,11 +18,12 @@ Returns a bearer token. Protected routes require `Authorization: Bearer <token>`
 ## Requests
 
 - `POST /api/v1/requests` — create request; requires `Idempotency-Key` header, title 5–120 chars, description 20–3000 chars, and priority `LOW`, `NORMAL`, or `HIGH`.
-- `GET /api/v1/requests?page=1&page_size=20&search=...` — paginated organization requests; customers only see their own.
-- `GET /api/v1/requests/{id}` — request summary; customers only see their own.
+- `GET /api/v1/requests?page=1&page_size=20&search=...` — paginated organization requests; customers see their own and technicians see actively assigned work.
+- `GET /api/v1/requests/{id}` — request summary, scoped to the customer owner or assigned technician where applicable.
 - `PATCH /api/v1/requests/{id}/status` — apply an allowed transition, optionally with a reason.
 - `GET /api/v1/requests/{id}/history` — request status event history.
 - `POST /api/v1/requests/{id}/assignments` — dispatcher/admin schedules an active technician; checks required category skills, local working hours, and overlapping assignments.
+- `GET /api/v1/technicians`, `GET /api/v1/assignments` — dispatcher/admin roster and tenant-scoped schedule board.
 - `GET /api/v1/technicians/me`, `GET /api/v1/technician/assignments` — technician profile and active assigned work.
 - `POST /api/v1/assignments/{id}/accept` or `/decline` — technician response.
 - `POST /api/v1/requests/{id}/estimates` — dispatcher/admin creates an idempotent estimate draft with line items.
@@ -31,6 +35,7 @@ Returns a bearer token. Protected routes require `Authorization: Bearer <token>`
 - `POST /api/v1/inventory/items/{id}/movements` — dispatcher/admin records a keyed stock receipt/issue; locked quantity updates reject negative stock.
 - `GET/POST /api/v1/requests/{id}/notes` — read/write notes with tenant, customer, and assignment access checks; customers cannot see internal notes. Writes are idempotent.
 - `GET /api/v1/notifications`, `POST /api/v1/notifications/{id}/read` — list the signed-in user notifications and mark one read.
+- `GET /api/v1/audit` — organization-admin-only, tenant-scoped audit feed.
 - `GET /health/live`, `GET /health/ready` — process liveness and database readiness checks.
 
 Errors use FastAPI's JSON `detail` response. Authentication failures return 401, role failures 403, missing or out-of-scope IDs 404, invalid transitions and idempotency payload reuse 409, and schema validation 422. An organization-scoped request key can be reused with the same payload to return the original request; a changed payload returns 409. The unique organization/key constraint and conflict recovery cover concurrent identical submissions.

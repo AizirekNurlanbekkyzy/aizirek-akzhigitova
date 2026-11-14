@@ -33,6 +33,11 @@ class AssignmentOut(BaseModel):
     created_at: datetime
 
 
+class AssignmentBoardOut(AssignmentOut):
+    request_title: str
+    technician_name: str
+
+
 class TechnicianProfileOut(BaseModel):
     id: UUID
     user_id: UUID

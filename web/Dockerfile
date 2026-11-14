@@ -1,11 +1,25 @@
-FROM oven/bun:1 AS deps
+FROM node:22-alpine AS base
+RUN apk add --no-cache libc6-compat
 WORKDIR /app
-COPY package.json ./
-RUN bun install --no-save
-FROM oven/bun:1 AS build
-WORKDIR /app
+RUN npm install --global pnpm@11.25.0
+
+FROM base AS deps
+COPY package.json pnpm-lock.yaml .npmrc ./
+RUN pnpm install --frozen-lockfile
+
+FROM base AS build
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN bun run build
+ARG NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_TELEMETRY_DISABLED=1
+RUN pnpm run build
+
+FROM base AS runner
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+COPY --from=build /app/.next ./.next
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/package.json ./package.json
 EXPOSE 3000
-CMD ["bun", "run", "start", "--", "-H", "0.0.0.0"]
+CMD ["pnpm", "run", "start", "--", "-H", "0.0.0.0"]

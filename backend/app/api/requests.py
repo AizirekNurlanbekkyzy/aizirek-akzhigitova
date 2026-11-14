@@ -27,6 +27,22 @@ router = APIRouter(prefix="/requests", tags=["requests"])
 DISPATCH_ROLES = {Role.DISPATCHER, Role.ORGANIZATION_ADMIN}
 
 
+def _technician_request_ids(user: User):
+    return (
+        select(Assignment.request_id)
+        .join(Technician, Technician.id == Assignment.technician_id)
+        .where(
+            Assignment.organization_id == user.organization_id,
+            Assignment.status.in_(
+                {AssignmentStatus.OFFERED, AssignmentStatus.ACCEPTED, AssignmentStatus.COMPLETED}
+            ),
+            Technician.organization_id == user.organization_id,
+            Technician.user_id == user.id,
+            Technician.active.is_(True),
+        )
+    )
+
+
 @router.post("", response_model=RequestOut, status_code=201)
 async def create_request(
     data: RequestCreate,
@@ -177,6 +193,10 @@ async def list_requests(
     if user.role == Role.CUSTOMER:
         query = query.where(ServiceRequest.customer_id == user.id)
         count_query = count_query.where(ServiceRequest.customer_id == user.id)
+    elif user.role == Role.TECHNICIAN:
+        technician_requests = _technician_request_ids(user)
+        query = query.where(ServiceRequest.id.in_(technician_requests))
+        count_query = count_query.where(ServiceRequest.id.in_(technician_requests))
     if search:
         pattern = f"%{search}%"
         query = query.where(ServiceRequest.title.ilike(pattern))
@@ -332,6 +352,8 @@ async def get_request(
     ]
     if user.role == Role.CUSTOMER:
         conditions.append(ServiceRequest.customer_id == user.id)
+    elif user.role == Role.TECHNICIAN:
+        conditions.append(ServiceRequest.id.in_(_technician_request_ids(user)))
     item = await session.scalar(select(ServiceRequest).where(*conditions))
     if item is None:
         raise HTTPException(404, "Request not found")
@@ -349,6 +371,11 @@ async def request_history(
             ServiceRequest.id == request_id,
             ServiceRequest.organization_id == user.organization_id,
             *([ServiceRequest.customer_id == user.id] if user.role == Role.CUSTOMER else []),
+            *(
+                [ServiceRequest.id.in_(_technician_request_ids(user))]
+                if user.role == Role.TECHNICIAN
+                else []
+            ),
         )
     )
     if item is None:
