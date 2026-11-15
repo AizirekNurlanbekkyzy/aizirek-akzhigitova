@@ -6,7 +6,7 @@
 - Web tokens are held in browser local storage; a hardened production session should move to secure HttpOnly cookies. There is no token refresh endpoint, invitation flow, rate limiting, password reset, or brute-force protection.
 - File upload, object storage, malware scanning, and protected download authorization are absent.
 - Live updates (WebSocket/SSE), search filters beyond title, analytics, and a complete administrative UI are absent.
-- Mobile is only a Flutter shell plus durable local command table; synchronization transport, login, tasks, photos, conflict UI, and generated Android wrapper/APK are absent.
+- Mobile has a Flutter technician workflow with secure login, assignments, request details, status actions, and notes. Flutter/Android SDK are unavailable here, so the Android wrapper, APK, and device run are not verified. Background offline synchronization, photos/materials, and push notifications remain incomplete.
 - Demo seed adds two organizations, four roles per organization, fifty requests, technicians/working hours/skills, property/equipment, draft estimates, and stock. It uses stable IDs, is additive, and refuses production mode.
 - The initial Alembic migration is a frozen PostgreSQL DDL snapshot. Future schema changes require additional migrations.
 - Docker Desktop is installed, but Docker CLI calls in this session receive access denied from the engine named pipe. Compose configuration validation passes; PostgreSQL/container startup, migrations, restart persistence, and native PostgreSQL locking remain unverified.

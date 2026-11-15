@@ -8,7 +8,7 @@ FixFlow connects customer service, dispatch, estimates, field work, and inventor
 |---|---|---|
 | Backend | FastAPI, JWT login/customer registration, organization isolation, requests, assignments, estimate versions/approval, inventory movements, notes, notifications, admin audit feed, idempotency, event history, Alembic, additive demo seed | SLA and maintenance workers, protected file upload/download, user/property/equipment/category CRUD, feedback, live updates, full PostgreSQL concurrency tests |
 | Web | Responsive Russian/English application; role-aware dashboard, requests, estimates, technician list, schedule, technician tasks, inventory, customer registration/sign-in; connected to the API | Estimate editing/revision UI, property/equipment selection, notification center, advanced filters/analytics, live updates, production cookie sessions and accessibility review |
-| Android | Flutter source scaffold and SQLite persistent outbox primitives | Login/API sync UI, assigned task workflow, notes/photos/materials, conflict resolution, notifications, Android project wrapper and APK |
+| Android | Flutter technician app source: secure sign-in, assigned jobs, request details, status actions, and shared notes | Android project wrapper/APK generation, background offline synchronization, photos/materials, conflict resolution, push notifications |
 
 No APK, demonstration video, or deployable production build is included. Docker Desktop is installed, but this session receives access denied from its engine pipe, so the Compose services have not been started here.
 
@@ -53,7 +53,7 @@ Backend: set `DATABASE_URL`, a `JWT_SECRET` of at least 32 random bytes, and `AP
 
 Web: from `web/`, run `pnpm install --frozen-lockfile`, set `NEXT_PUBLIC_API_URL` if the API is not at `http://localhost:8001/api/v1`, then run `pnpm dev`. The browser sends requests directly to this API URL; configure `CORS_ORIGINS` if the web host changes.
 
-Mobile source is under `mobile/`. Flutter commands cannot be reported as successful until Flutter and Android SDK are installed.
+Mobile source is under `mobile/`; Android run and APK instructions are in `mobile/README.md`. This environment does not currently have Flutter or the Android SDK, so APK build and on-device testing have not been performed.
 
 ## Verification
 
