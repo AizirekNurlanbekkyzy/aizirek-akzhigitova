@@ -6,11 +6,11 @@ FixFlow connects customer service, dispatch, estimates, field work, and inventor
 
 | Component | Implemented in this checkout | Not implemented yet |
 |---|---|---|
-| Backend | FastAPI, JWT login/customer registration, organization isolation, requests, assignments, estimate versions/approval, inventory movements, notes, notifications, admin audit feed, idempotency, event history, Alembic, additive demo seed | SLA and maintenance workers, protected file upload/download, user/property/equipment/category CRUD, feedback, live updates, full PostgreSQL concurrency tests |
-| Web | Responsive Russian/English application; role-aware dashboard, requests, estimates, technician list, schedule, technician tasks, inventory, customer registration/sign-in; connected to the API | Estimate editing/revision UI, property/equipment selection, notification center, advanced filters/analytics, live updates, production cookie sessions and accessibility review |
+| Backend | FastAPI, email/password login and customer registration, organization isolation, requests, assignments, estimate versions/approval, inventory movements, notes, notifications, admin audit feed, idempotency, event history, Alembic, additive demo seed | SLA and maintenance workers, protected file upload/download, user/property/equipment/category CRUD, feedback, live updates, full PostgreSQL concurrency tests |
+| Web | Responsive Russian/English application; role-aware dashboard, requests, estimates, technician list, schedule, technician tasks, inventory, customer registration/sign-in using only email and password; connected to the API | Estimate editing/revision UI, property/equipment selection, notification center, advanced filters/analytics, live updates, production cookie sessions and accessibility review |
 | Android | Flutter technician app source: secure sign-in, assigned jobs, request details, status actions, and shared notes | Android project wrapper/APK generation, background offline synchronization, photos/materials, conflict resolution, push notifications |
 
-No APK, demonstration video, or deployable production build is included. Docker Desktop is installed, but this session receives access denied from its engine pipe, so the Compose services have not been started here.
+No APK or deployable production build is included. [Watch the FixFlow demonstration video on YouTube](https://youtu.be/hFNOJmtK2nk). Docker Desktop is installed, but this session receives access denied from its engine pipe, so the Compose services have not been started here.
 
 ## Requirements
 
@@ -27,7 +27,7 @@ Do not copy demo credentials into a deployed environment. From this directory, c
 .\scripts\setup-env.ps1
 ```
 
-The script refuses to overwrite an existing `.env`. The file is ignored by Git; `.env.example` contains empty secret and environment fields and cannot start Compose unchanged. For production, set `APP_ENV=production`, supply production-managed secrets, and do not run the demo seed command. Compose requires an explicit environment value; the API rejects placeholder JWT secrets and the seed refuses production mode.
+The script refuses to overwrite an existing `.env`. The file is ignored by Git; `.env.example` contains empty secret and environment fields and cannot start Compose unchanged. Set `DEFAULT_ORGANIZATION_ID` to the organization that should receive new public customer registrations; this is server-side configuration, so customers only enter their email and password. The included local `.env` targets the North demo organization. In production, use the real organization's ID, set `APP_ENV=production`, supply production-managed secrets, and do not run the demo seed command. Production startup rejects the demo organization as the public registration target. Compose requires an explicit environment value; the API rejects placeholder JWT secrets and the seed refuses production mode.
 
 ## Run API and web with Docker
 
@@ -38,6 +38,10 @@ docker compose up --build
 ```
 
 The database uses a persistent named volume. Migrations run after PostgreSQL reports healthy. Open the web application at <http://localhost:3000>; API documentation is at <http://localhost:8001/api/v1/docs>. Health checks are at <http://localhost:8001/health/live> and <http://localhost:8001/health/ready>.
+
+### Open the site from a phone on the same Wi-Fi
+
+Set `HOST_BIND=0.0.0.0`, add the laptop address to `CORS_ORIGINS` (for example, `http://192.168.1.20:3000`), and set `NEXT_PUBLIC_API_URL` to `http://192.168.1.20:8001/api/v1`. Rebuild the web and backend services after changing these values. Share `http://192.168.1.20:3000` with devices on the same trusted Wi-Fi. The database port remains bound to `127.0.0.1` and is not published to the LAN. Windows Firewall may ask to allow the app on private networks. This LAN address is temporary and may change when the router assigns a new address; this does not create an internet-hosted public site.
 
 Seed the demo data in a separate terminal after startup:
 
@@ -68,4 +72,4 @@ Mobile source is under `mobile/`; Android run and APK instructions are in `mobil
 - [Verification](docs/VERIFICATION.md)
 - [AI usage](docs/AI_USAGE.md)
 
-Demonstration video: not recorded yet.
+Demonstration video: [FixFlow on YouTube](https://youtu.be/hFNOJmtK2nk).

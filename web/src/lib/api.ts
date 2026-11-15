@@ -42,14 +42,14 @@ async function call<T>(path: string, token?: string, init: RequestInit = {}): Pr
   return response.json() as Promise<T>;
 }
 
-export async function login(email: string, password: string, organizationId: string): Promise<string> {
+export async function login(email: string, password: string, organizationId?: string): Promise<string> {
   const body = await call<{ access_token: string }>("/auth/login", undefined, {
-    method: "POST", body: JSON.stringify({ email, password, organization_id: organizationId }),
+    method: "POST", body: JSON.stringify({ email, password, ...(organizationId ? { organization_id: organizationId } : {}) }),
   });
   return body.access_token;
 }
 
-export function registerCustomer(input: { email: string; name: string; password: string; organization_id: string }) {
+export function registerCustomer(input: { email: string; password: string }) {
   return call<{ id: string; email: string; role: Role }>("/auth/register", undefined, {
     method: "POST", body: JSON.stringify(input),
   });

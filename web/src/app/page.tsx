@@ -14,6 +14,11 @@ type Section = "dashboard" | "requests" | "estimates" | "technicians" | "schedul
 const text: Record<Language, Record<string, string>> = {
   ru: {
     subtitle: "Сервисные заявки и обслуживание", signIn: "Войти", register: "Создать аккаунт",
+    heroEyebrow: "ПЛАТФОРМА СЕРВИСНЫХ ОПЕРАЦИЙ",
+    heroTitle: "Сервисная работа — в одном понятном пространстве.",
+    heroDescription: "Принимайте заявки, планируйте выезды и следите за выполнением работ в FixFlow.",
+    featureRequests: "Заявки и статусы", featureSchedule: "Команда и расписание", featureInventory: "Сметы и склад",
+    authIntro: "Войдите в рабочее пространство или создайте аккаунт клиента.",
     email: "Электронная почта", password: "Пароль (не менее 12 символов)", org: "ID организации",
     name: "Ваше имя", dashboard: "Обзор", requests: "Заявки", estimates: "Сметы",
     technicians: "Специалисты", schedule: "Расписание", inventory: "Склад", tasks: "Мои задачи",
@@ -39,6 +44,11 @@ const text: Record<Language, Record<string, string>> = {
   },
   en: {
     subtitle: "Service requests and maintenance", signIn: "Sign in", register: "Create account",
+    heroEyebrow: "SERVICE OPERATIONS PLATFORM",
+    heroTitle: "Service work, in one clear workspace.",
+    heroDescription: "Manage incoming requests, plan field visits, and keep work moving with FixFlow.",
+    featureRequests: "Requests and status", featureSchedule: "Team and schedule", featureInventory: "Estimates and stock",
+    authIntro: "Sign in to your workspace or create a customer account.",
     email: "Email", password: "Password (at least 12 characters)", org: "Organization ID",
     name: "Your name", dashboard: "Dashboard", requests: "Requests", estimates: "Estimates",
     technicians: "Technicians", schedule: "Schedule", inventory: "Inventory", tasks: "My tasks",
@@ -134,6 +144,19 @@ export default function Home() {
   }, [profile, isManager]);
   const visibleRequests = useMemo(() => requests.filter((item) =>
     `${item.title} ${item.description}`.toLowerCase().includes(search.toLowerCase())), [requests, search]);
+  const weeklyActivity = useMemo(() => Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(); date.setHours(0, 0, 0, 0); date.setDate(date.getDate() - (6 - index));
+    return {
+      date,
+      label: new Intl.DateTimeFormat(language === "ru" ? "ru-RU" : "en-US", { weekday: "short" }).format(date),
+      count: requests.filter((item) => {
+        const created = new Date(item.created_at); created.setHours(0, 0, 0, 0);
+        return created.getTime() === date.getTime();
+      }).length,
+    };
+  }), [requests, language]);
+  const recentRequests = useMemo(() => [...requests].sort((a, b) =>
+    new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 5), [requests]);
 
   function logout() {
     localStorage.removeItem("fixflow-token");
@@ -143,12 +166,11 @@ export default function Home() {
   async function authenticate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setBusy(true); setError("");
     const data = new FormData(event.currentTarget);
-    const organization_id = String(data.get("organization_id"));
     try {
       if (authMode === "register") {
-        await registerCustomer({ email: String(data.get("email")), name: String(data.get("name")), password: String(data.get("password")), organization_id });
+        await registerCustomer({ email: String(data.get("email")), password: String(data.get("password")) });
       }
-      const value = await login(String(data.get("email")), String(data.get("password")), organization_id);
+      const value = await login(String(data.get("email")), String(data.get("password")));
       localStorage.setItem("fixflow-token", value); setToken(value);
     } catch (cause) { setError(cause instanceof Error ? cause.message : t.loadError); }
     finally { setBusy(false); }
@@ -181,19 +203,33 @@ export default function Home() {
     schedule: t.schedule, inventory: t.inventory, tasks: t.tasks,
   };
 
-  if (!token || !profile) return <main className="auth-shell">
-    <section className="auth-panel"><div className="brand-mark">F</div><p className="eyebrow">FIXFLOW · SERVICE OPERATIONS</p>
-      <h1>{t.subtitle}</h1><p className="muted">{language === "ru" ? "Единое рабочее пространство для сервиса и выездных команд." : "One workspace for service operations and field teams."}</p>
-      <div className="language-row"><button className={language === "ru" ? "active" : ""} onClick={() => { setLanguage("ru"); localStorage.setItem("fixflow-lang", "ru"); }}>RU</button><button className={language === "en" ? "active" : ""} onClick={() => { setLanguage("en"); localStorage.setItem("fixflow-lang", "en"); }}>EN</button></div>
-    </section><form className="card auth-card" onSubmit={authenticate}>
-      <div className="segmented"><button type="button" className={authMode === "login" ? "selected" : ""} onClick={() => setAuthMode("login")}>{t.signIn}</button><button type="button" className={authMode === "register" ? "selected" : ""} onClick={() => setAuthMode("register")}>{t.register}</button></div>
-      {authMode === "register" && <label>{t.name}<input className="input" name="name" minLength={2} required /></label>}
-      <label>{t.email}<input className="input" name="email" type="email" required /></label>
-      <label>{t.password}<input className="input" name="password" type="password" minLength={authMode === "register" ? 12 : 1} required /></label>
-      <label>{t.org}<input className="input" name="organization_id" placeholder="00000000-0000-0000-0000-000000000000" required /></label>
-      {error && <p className="alert" role="alert">{error}</p>}<button className="button primary full" disabled={busy}>{busy ? "…" : authMode === "login" ? t.signIn : t.register}</button>
-      <p className="form-note">{language === "ru" ? "Регистрация создаёт только клиентский аккаунт." : "Registration creates a customer account only."}</p>
-    </form>
+  if (!token || !profile) return <main className="landing-page">
+    <header className="landing-header">
+      <div className="landing-brand"><span className="brand-mark small">F</span><strong>FixFlow</strong></div>
+      <div className="landing-header-actions"><span className="landing-caption">{language === "ru" ? "Сервисные операции" : "Service operations"}</span><button className="button ghost language-toggle" onClick={() => { const next = language === "ru" ? "en" : "ru"; setLanguage(next); localStorage.setItem("fixflow-lang", next); }}>{language.toUpperCase()}</button></div>
+    </header>
+    <div className="landing-layout">
+      <section className="landing-hero">
+        <p className="eyebrow"><span className="eyebrow-light" />{t.heroEyebrow}</p>
+        <h1>{t.heroTitle}</h1>
+        <p className="landing-description">{t.heroDescription}</p>
+        <div className="landing-features">
+          <article className="landing-feature"><span className="feature-icon">⌁</span><div><strong>{t.featureRequests}</strong><p>{language === "ru" ? "Создание заявок и понятный контроль этапов." : "Create requests and track every stage."}</p></div></article>
+          <article className="landing-feature"><span className="feature-icon">◷</span><div><strong>{t.featureSchedule}</strong><p>{language === "ru" ? "Назначение специалистов и времени визита." : "Assign technicians and plan visits."}</p></div></article>
+          <article className="landing-feature"><span className="feature-icon">◇</span><div><strong>{t.featureInventory}</strong><p>{language === "ru" ? "Согласование стоимости и учёт материалов." : "Approve estimates and track materials."}</p></div></article>
+        </div>
+        <div className="landing-orbit orbit-one" /><div className="landing-orbit orbit-two" /><div className="landing-orb"><span>F</span></div>
+      </section>
+      <form className="card auth-card landing-auth-card" onSubmit={authenticate}>
+        <div className="auth-card-heading"><p className="eyebrow">FIXFLOW WORKSPACE</p><h2>{authMode === "login" ? t.signIn : t.register}</h2><p className="muted">{t.authIntro}</p></div>
+        <div className="segmented"><button type="button" className={authMode === "login" ? "selected" : ""} onClick={() => setAuthMode("login")}>{t.signIn}</button><button type="button" className={authMode === "register" ? "selected" : ""} onClick={() => setAuthMode("register")}>{t.register}</button></div>
+        <label>{t.email}<input className="input" name="email" type="email" autoComplete="email" placeholder={language === "ru" ? "name@example.com" : "name@example.com"} required /></label>
+        <label>{t.password}<input className="input" name="password" type="password" autoComplete={authMode === "login" ? "current-password" : "new-password"} minLength={authMode === "register" ? 12 : 1} required /></label>
+        {error && <p className="alert" role="alert">{error}</p>}<button className="button primary full auth-submit" disabled={busy}>{busy ? (language === "ru" ? "Подождите…" : "Please wait…") : authMode === "login" ? t.signIn : t.register}<span>↗</span></button>
+        <p className="form-note">{language === "ru" ? "Регистрация создаёт аккаунт клиента. Пароль — не менее 12 символов." : "Registration creates a customer account. Password must be at least 12 characters."}</p>
+      </form>
+    </div>
+    <footer className="landing-footer"><span>© FixFlow</span><span>{language === "ru" ? "Рабочее пространство сервисной команды" : "Workspace for service teams"}</span></footer>
   </main>;
 
   return <main className="app-shell">
@@ -203,7 +239,24 @@ export default function Home() {
     </aside>
     <section className="main-area"><header className="page-header"><div><p className="eyebrow">{new Date().toLocaleDateString(language === "ru" ? "ru-RU" : "en-US", { weekday: "long", month: "long", day: "numeric" })}</p><h1>{navLabel[section]}</h1></div><div className="header-actions"><button className="button ghost" onClick={() => setLanguage(language === "ru" ? "en" : "ru")}>{language.toUpperCase()}</button><button className="button ghost" onClick={() => void refresh(token, profile.role)} disabled={busy}>{t.refresh}</button></div></header>
       {(error || notice) && <p className={error ? "alert toast" : "success toast"} role="status">{error || notice}</p>}
-      {section === "dashboard" && <><div className="welcome-row"><div><h2>{t.welcome}, {profile.name.split(" ")[0]}</h2><p className="muted">{language === "ru" ? "Текущая картина по вашим сервисным операциям." : "A live view of your service operations."}</p></div></div><div className="stats-grid"><Stat label={t.totalRequests} value={requests.length} icon="↗"/><Stat label={t.openRequests} value={requests.filter((r) => !["COMPLETED", "CLOSED", "CANCELED"].includes(r.status)).length} icon="◷"/><Stat label={t.pendingEstimates} value={estimates.filter((e) => e.status === "AWAITING_APPROVAL").length} icon="◇"/>{isManager && <Stat label={t.lowStock} value={inventory.filter((i) => i.quantity_on_hand <= i.minimum_quantity).length} icon="▤"/>}</div><section className="card section-card"><div className="section-heading"><div><h2>{t.requests}</h2><p className="muted">{language === "ru" ? "Последние обновления из API" : "Latest updates from the API"}</p></div><button className="button secondary" onClick={() => setSection(profile.role === "TECHNICIAN" ? "tasks" : "requests")}>{t.requests} →</button></div><RequestTable items={requests.slice(0, 5)} language={language} labels={t} /></section></>}
+      {section === "dashboard" && <>
+        <div className="welcome-row"><div><p className="eyebrow">{language === "ru" ? "РАБОЧЕЕ ПРОСТРАНСТВО" : "SERVICE WORKSPACE"}</p><h2>{language === "ru" ? "Доброе утро" : "Good morning"}, {profile.name.split(" ")[0]} <span className="wave">✦</span></h2><p className="muted">{language === "ru" ? "Актуальная картина по сервисным операциям вашей организации." : "Here is what is happening with your service operations today."}</p></div><button className="button primary" onClick={() => setSection(profile.role === "TECHNICIAN" ? "tasks" : "requests")}>＋ {profile.role === "CUSTOMER" ? t.newRequest : language === "ru" ? "Открыть заявки" : "View requests"}</button></div>
+        <div className="stats-grid"><Stat label={t.totalRequests} value={requests.length} icon="↗"/><Stat label={t.openRequests} value={requests.filter((r) => !["COMPLETED", "CLOSED", "CANCELED"].includes(r.status)).length} icon="◷"/><Stat label={t.pendingEstimates} value={estimates.filter((e) => e.status === "AWAITING_APPROVAL").length} icon="◇"/>{isManager && <Stat label={t.lowStock} value={inventory.filter((i) => i.quantity_on_hand <= i.minimum_quantity).length} icon="▤"/>}</div>
+        <div className="dashboard-grid">
+          <section className="card activity-card"><div className="section-heading"><div><h2>{language === "ru" ? "Динамика заявок" : "Request activity"}</h2><p className="muted">{language === "ru" ? "Создано за последние 7 дней" : "Requests created over the last 7 days"}</p></div><span className="badge range-badge">{language === "ru" ? "7 дней" : "7 days"}</span></div>
+            <div className="chart-plot"><svg viewBox="0 0 400 160" role="img" aria-label={language === "ru" ? "График новых заявок за семь дней" : "New requests over seven days"}>
+              <defs><linearGradient id="chartFill" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor="#a35bff" stopOpacity=".42"/><stop offset="100%" stopColor="#a35bff" stopOpacity="0"/></linearGradient></defs>
+              {[30, 70, 110, 150].map((y) => <line key={y} x1="8" x2="392" y1={y} y2={y} className="chart-gridline"/>)}
+              {(() => { const max = Math.max(1, ...weeklyActivity.map((day) => day.count)); const points = weeklyActivity.map((day, i) => `${12 + i * 62.7},${124 - (day.count / max) * 92}`).join(" "); return <><polygon points={`12,152 ${points} 389,152`} fill="url(#chartFill)"/><polyline points={points} fill="none" stroke="#b16cff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>{weeklyActivity.map((day, i) => <circle key={day.date.toISOString()} cx={12 + i * 62.7} cy={124 - (day.count / max) * 92} r="3.5" className="chart-point"/>)}</>; })()}
+            </svg></div><div className="chart-labels">{weeklyActivity.map((day) => <span key={day.date.toISOString()}>{day.label}</span>)}</div>
+            <div className="chart-total"><span className="chart-key"/>{language === "ru" ? "Заявок за период" : "Requests this period"}<strong>{weeklyActivity.reduce((sum, day) => sum + day.count, 0)}</strong></div>
+          </section>
+          <section className="card recent-card"><div className="section-heading"><div><h2>{language === "ru" ? "Последние заявки" : "Recent requests"}</h2><p className="muted">{language === "ru" ? "Обновления из системы" : "Latest updates from your workspace"}</p></div><button className="text-button" onClick={() => setSection(profile.role === "TECHNICIAN" ? "tasks" : "requests")}>{language === "ru" ? "Все →" : "View all →"}</button></div>
+            {recentRequests.length ? <div className="recent-list">{recentRequests.map((item) => <article className="recent-item" key={item.id}><span className="request-symbol">⌁</span><div className="recent-copy"><strong>{item.title}</strong><small>{item.service_address || new Date(item.created_at).toLocaleDateString(language === "ru" ? "ru-RU" : "en-US")}</small></div><span className={`badge status-${item.status.toLowerCase()}`}>{statusText[language][item.status] || item.status}</span></article>)}</div> : <div className="empty-state"><span>⌁</span><p>{t.empty}</p></div>}
+          </section>
+        </div>
+        {isManager && <section className="card quick-card"><div><p className="eyebrow">{language === "ru" ? "БЫСТРЫЙ ДОСТУП" : "QUICK ACCESS"}</p><h2>{language === "ru" ? "Управление сервисом" : "Service operations"}</h2></div><div className="quick-links">{(["requests", "schedule", "technicians", "inventory"] as Section[]).filter((item) => allowedSections.includes(item)).map((item) => <button key={item} className="quick-link" onClick={() => setSection(item)}><span>{({ requests: "▤", schedule: "◷", technicians: "♙", inventory: "◇" } as Record<Section, string>)[item]}</span>{navLabel[item]}<b>↗</b></button>)}</div></section>}
+      </>}
       {section === "requests" && <div className="content-grid"><section className="card section-card"><div className="section-heading"><h2>{t.requests}</h2><input className="input search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t.search}/></div><RequestTable items={visibleRequests} language={language} labels={t} /><p className="muted small-text">{visibleRequests.length} / {requests.length}</p>
         {isManager && <div className="request-actions">{requests.filter((r) => r.status === "SUBMITTED").slice(0, 8).map((r) => <button key={r.id} className="button secondary" onClick={() => void act(() => changeRequestStatus(token, r.id, "TRIAGED"))}>{t.triage}: {r.title}</button>)}</div>}
       </section>{profile.role === "CUSTOMER" && <form className="card form-card" onSubmit={createRequestForm}><p className="eyebrow">SERVICE DESK</p><h2>{t.newRequest}</h2><label>{t.title}<input className="input" name="title" minLength={5} maxLength={120} required /></label><label>{t.description}<textarea className="input" name="description" minLength={20} maxLength={3000} rows={5} required /></label><label>{t.address}<input className="input" name="service_address" maxLength={500} autoComplete="street-address" required /></label><label>{t.priority}<select className="input" name="priority" defaultValue="NORMAL"><option value="LOW">{t.priorityLow}</option><option value="NORMAL">{t.priorityNormal}</option><option value="HIGH">{t.priorityHigh}</option></select></label><label>{t.visitTime}<input className="input" name="desired_visit_at" type="datetime-local" /></label><button className="button primary" disabled={busy}>{t.create} <span>↗</span></button></form>}</div>}

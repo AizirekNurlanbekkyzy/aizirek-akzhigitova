@@ -231,7 +231,7 @@ class FixFlowApi {
       token: token,
       method: 'POST',
       body: {'body': body, 'internal_only': false},
-      extraHeaders: {'Idempotency-Key': 'mobile-${const Uuid().v4()}'},
+      extraHeaders: {'Idempotency-Key': 'mobile-${Uuid().v4()}'},
     );
   }
 }
@@ -906,3 +906,14 @@ String? _dateTime(String? value) {
       '${parsed.hour.toString().padLeft(2, '0')}:${parsed.minute.toString().padLeft(2, '0')}';
   return '$date · $time';
 }
+
+String _statusLabel(String status) => const {
+  'NEW': 'Новая',
+  'SCHEDULED': 'Запланирована',
+  'ASSIGNED': 'Назначена',
+  'ACCEPTED': 'Принята в работу',
+  'IN_PROGRESS': 'В работе',
+  'COMPLETED': 'Выполнена',
+  'CANCELLED': 'Отменена',
+  'ON_HOLD': 'Приостановлена',
+}[status] ?? status.replaceAll('_', ' ');

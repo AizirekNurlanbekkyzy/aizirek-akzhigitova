@@ -1,36 +1,54 @@
 # FixFlow Android technician app
 
-The Flutter app provides a technician sign-in, assigned work list, request details (address and preferred visit time), accept/start/complete actions, and shared request notes. Access tokens are stored with Android secure storage. It connects to the existing FixFlow API; the app does not use mock requests.
+The Flutter app connects to the existing FixFlow API. It supports technician sign-in, assigned requests, request details (including address and preferred visit time), work status actions, and shared notes. It does not use mock requests. Access tokens use Android secure storage.
 
-## Generate the Android wrapper
+## Prerequisites
 
-Install Flutter and Android Studio with the Android SDK, then from this directory run:
+- Flutter SDK and Android Studio with Android SDK installed.
+- An Android Virtual Device (AVD) or a physical Android phone.
+- The FixFlow API running and reachable from the device.
+
+The Android project wrapper is already included in `android/`; do not run `flutter create` again.
+
+## Start in the Android emulator
+
+Start an AVD from Android Studio: **More Actions → Virtual Device Manager → ▶**. For the Android emulator, the host machine is available at `10.0.2.2`, so the default API address is `http://10.0.2.2:8001/api/v1`.
+
+From this `mobile` directory, run:
 
 ```powershell
-flutter create --platforms=android --org=com.fixflow .
 flutter pub get
+flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8001/api/v1 --dart-define=DEFAULT_ORGANIZATION_ID=<organization-id>
 ```
 
-Keep the existing `lib/` and `pubspec.yaml` when Flutter asks about files that already exist. In `android/app/src/main/AndroidManifest.xml`, set `android:usesCleartextTraffic="true"` on the `<application>` element for local HTTP development and set `android:allowBackup="false"` to protect secure-storage keys. For a deployed service, use HTTPS instead of cleartext HTTP.
+Use the organization ID printed by `docker compose exec backend uv run --no-sync python -m app.seed`. The API must be running on port 8001.
 
-## Run on Android
+If the emulator cannot start because hardware acceleration is unavailable, enable **Windows Hypervisor Platform** in Windows Features and restart Windows. An emulator also needs several gigabytes of free disk space. A physical Android phone can be used instead.
 
-For the Android emulator, the default API address is `http://10.0.2.2:8001/api/v1`. Pass the demo organization ID printed by the seed command (or use the app's organization field):
+## Start on a physical Android phone
 
-```powershell
-flutter run --dart-define=DEFAULT_ORGANIZATION_ID=<organization-id>
-```
-
-For a physical phone, put the computer and phone on the same trusted Wi-Fi, set `HOST_BIND=0.0.0.0` in the ignored project `.env`, allow the API port through Windows Firewall on the private network, and pass the computer's LAN IPv4 address:
+Connect the phone and computer to the same trusted Wi-Fi network. Configure the API to listen on the LAN (for example, set `HOST_BIND=0.0.0.0` in the ignored project `.env`) and allow port 8001 through Windows Firewall for the private network. Find the computer's LAN IPv4 address, then run:
 
 ```powershell
 flutter run --dart-define=API_BASE_URL=http://<computer-lan-ip>:8001/api/v1 --dart-define=DEFAULT_ORGANIZATION_ID=<organization-id>
 ```
 
-Build a release APK with:
+For a deployed service, use HTTPS instead of cleartext HTTP.
+
+## Build APK
+
+A debug APK can be built for local installation with:
+
+```powershell
+flutter build apk --debug --dart-define=API_BASE_URL=http://10.0.2.2:8001/api/v1 --dart-define=DEFAULT_ORGANIZATION_ID=<organization-id>
+```
+
+A release APK for deployment must use the public HTTPS API address and a configured signing key:
 
 ```powershell
 flutter build apk --release --dart-define=API_BASE_URL=https://<your-api-host>/api/v1 --dart-define=DEFAULT_ORGANIZATION_ID=<organization-id>
 ```
 
-The APK is written to `build/app/outputs/flutter-apk/app-release.apk`. The app requires an online connection for sign-in, refresh, status changes, and notes; queued background synchronization, photos, and push notifications are not implemented yet.
+APK output: `build/app/outputs/flutter-apk/app-debug.apk` (debug) or `app-release.apk` (release).
+
+The app needs an online connection for sign-in, status changes, and notes. Queued background synchronization, photos, and push notifications are not implemented yet.

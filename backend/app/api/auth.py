@@ -34,7 +34,7 @@ def normalize_email(value: str) -> str:
 class Login(BaseModel):
     email: str
     password: str
-    organization_id: UUID
+    organization_id: UUID | None = None
 
     @field_validator("email")
     @classmethod
@@ -44,9 +44,9 @@ class Login(BaseModel):
 
 class Registration(BaseModel):
     email: str
-    name: str = Field(min_length=2, max_length=160)
+    name: str | None = Field(default=None, min_length=2, max_length=160)
     password: str = Field(min_length=12, max_length=128)
-    organization_id: UUID
+    organization_id: UUID | None = None
 
     @field_validator("email")
     @classmethod
@@ -58,18 +58,37 @@ class Registration(BaseModel):
 async def register(
     data: Registration, session: AsyncSession = Depends(get_session)
 ) -> dict[str, str]:
+    organization_id = data.organization_id or settings.default_organization_id
+    if organization_id is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Customer registration is not configured for this service",
+        )
     organization = await session.scalar(
         select(Organization).where(
-            Organization.id == data.organization_id, Organization.active.is_(True)
+            Organization.id == organization_id, Organization.active.is_(True)
         )
     )
     if organization is None:
         raise HTTPException(status_code=404, detail="Organization not found")
+    if data.organization_id is None:
+        existing_email = await session.scalar(
+            select(User.id).where(User.email == data.email).limit(1)
+        )
+        if existing_email is not None:
+            raise HTTPException(status_code=409, detail="Email is already registered")
+    display_name = data.name.strip() if data.name and data.name.strip() else (
+        data.email.split("@", 1)[0]
+        .replace(".", " ")
+        .replace("_", " ")
+        .replace("-", " ")
+        .title()
+    )
     user = User(
         organization_id=organization.id,
         email=data.email,
         password_hash=password_hash.hash(data.password),
-        name=data.name.strip(),
+        name=display_name,
         role=Role.CUSTOMER,
     )
     session.add(user)
@@ -94,18 +113,25 @@ async def register(
 
 @router.post("/login")
 async def login(data: Login, session: AsyncSession = Depends(get_session)) -> dict[str, str]:
-    result = await session.execute(
+    query = (
         select(User)
         .join(Organization, Organization.id == User.organization_id)
         .where(
             User.email == str(data.email).lower(),
-            User.organization_id == data.organization_id,
             Organization.active.is_(True),
         )
     )
-    user = result.scalar_one_or_none()
-    if not user or not user.active or not password_hash.verify(data.password, user.password_hash):
+    if data.organization_id is not None:
+        query = query.where(User.organization_id == data.organization_id)
+    result = await session.scalars(query)
+    matches = [
+        user
+        for user in result.all()
+        if user.active and password_hash.verify(data.password, user.password_hash)
+    ]
+    if len(matches) != 1:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+    user = matches[0]
     token = jwt.encode(
         {
             "sub": str(user.id),
