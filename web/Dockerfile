@@ -10,8 +10,8 @@ RUN pnpm install --frozen-lockfile
 FROM base AS build
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-ARG NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
-ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ARG FIXFLOW_API_ORIGIN=http://backend:8000
+ENV FIXFLOW_API_ORIGIN=$FIXFLOW_API_ORIGIN
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN pnpm run build
 

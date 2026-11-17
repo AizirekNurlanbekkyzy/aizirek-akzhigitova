@@ -3,7 +3,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import {
   acceptAssignment, changeRequestStatus, createEstimate, createInventoryItem, createRequest,
-  decideEstimate, Estimate, getAssignments, getEstimates, getInventory, getMe, getMyAssignments,
+  ApiError, decideEstimate, Estimate, getAssignments, getEstimates, getInventory, getMe, getMyAssignments,
   getRequests, getTechnicians, InventoryItem, login, recordStockMovement, registerCustomer,
   RequestItem, Role, scheduleAssignment, submitEstimate, Technician, UserProfile,
 } from "@/lib/api";
@@ -41,6 +41,8 @@ const text: Record<Language, Record<string, string>> = {
     add: "Добавить", manager: "Управление FixFlow", customer: "Клиент", dispatcher: "Диспетчер",
     admin: "Администратор", technician: "Специалист", logout: "Выйти", noResults: "Ничего не найдено",
     ru: "Русский", en: "English", loadError: "Не удалось загрузить данные", recordCreated: "Сохранено",
+    apiUnavailable: "Сервер FixFlow временно не отвечает. Проверьте, что Docker запущен, и попробуйте ещё раз.",
+    retryConnection: "Повторить подключение", restoringSession: "Восстанавливаем вход…",
   },
   en: {
     subtitle: "Service requests and maintenance", signIn: "Sign in", register: "Create account",
@@ -69,6 +71,8 @@ const text: Record<Language, Record<string, string>> = {
     manager: "FixFlow workspace", customer: "Customer", dispatcher: "Dispatcher", admin: "Administrator",
     technician: "Technician", logout: "Sign out", noResults: "No results", ru: "Русский", en: "English",
     loadError: "Could not load data", recordCreated: "Saved",
+    apiUnavailable: "FixFlow server is temporarily unavailable. Check that Docker is running, then try again.",
+    retryConnection: "Retry connection", restoringSession: "Restoring your session…",
   },
 };
 
@@ -78,6 +82,15 @@ const statusText: Record<Language, Record<string, string>> = {
 };
 
 const managerRoles: Role[] = ["DISPATCHER", "ORGANIZATION_ADMIN"];
+
+function displayError(cause: unknown, language: Language, fallback: string): string {
+  if (cause instanceof ApiError && cause.message === "API_UNAVAILABLE") {
+    return language === "ru"
+      ? "Сервер FixFlow временно не отвечает. Проверьте, что Docker запущен, и попробуйте ещё раз."
+      : "FixFlow server is temporarily unavailable. Check that Docker is running, then try again.";
+  }
+  return cause instanceof Error ? cause.message : fallback;
+}
 
 export default function Home() {
   const [language, setLanguage] = useState<Language>("ru");
@@ -95,12 +108,15 @@ export default function Home() {
   const [notice, setNotice] = useState("");
   const [search, setSearch] = useState("");
   const [busy, setBusy] = useState(false);
+  const [sessionChecking, setSessionChecking] = useState(true);
+  const [sessionRetry, setSessionRetry] = useState(0);
   const t = text[language];
 
   useEffect(() => {
     setLanguage((localStorage.getItem("fixflow-lang") as Language) || "ru");
     const saved = localStorage.getItem("fixflow-token");
     if (saved) setToken(saved);
+    else setSessionChecking(false);
   }, []);
 
   const refresh = useCallback(async (activeToken: string, role: Role) => {
@@ -120,19 +136,28 @@ export default function Home() {
         setMyAssignments(await getMyAssignments(activeToken));
       }
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : t.loadError);
-      if (cause instanceof Error && cause.message.includes("401")) logout();
+      setError(displayError(cause, language, t.loadError));
+      if (cause instanceof ApiError && cause.status === 401) logout();
     } finally { setBusy(false); }
-  }, [search, t.loadError]);
+  }, [search, language, t.loadError]);
 
   useEffect(() => {
     let cancelled = false;
     if (!token) return;
-    getMe(token).then((user) => { if (!cancelled) setProfile(user); }).catch(() => {
-      localStorage.removeItem("fixflow-token"); setToken(""); setProfile(null);
-    });
+    setSessionChecking(true);
+    setError("");
+    getMe(token).then((user) => { if (!cancelled) setProfile(user); }).catch((cause) => {
+      if (cancelled) return;
+      if (cause instanceof ApiError && cause.status === 401) {
+        localStorage.removeItem("fixflow-token"); setToken(""); setProfile(null);
+      } else {
+        // Preserve the saved token during network outages; a temporary Docker/API
+        // startup delay must not force the user to sign in again.
+        setError(displayError(cause, language, t.loadError));
+      }
+    }).finally(() => { if (!cancelled) setSessionChecking(false); });
     return () => { cancelled = true; };
-  }, [token]);
+  }, [token, sessionRetry, language, t.loadError]);
 
   useEffect(() => { if (token && profile) void refresh(token, profile.role); }, [token, profile, refresh]);
 
@@ -172,14 +197,14 @@ export default function Home() {
       }
       const value = await login(String(data.get("email")), String(data.get("password")));
       localStorage.setItem("fixflow-token", value); setToken(value);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : t.loadError); }
+    } catch (cause) { setError(displayError(cause, language, t.loadError)); }
     finally { setBusy(false); }
   }
 
   async function act(action: () => Promise<unknown>) {
     setBusy(true); setError(""); setNotice("");
     try { await action(); setNotice(t.recordCreated); if (profile) await refresh(token, profile.role); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : t.loadError); }
+    catch (cause) { setError(displayError(cause, language, t.loadError)); }
     finally { setBusy(false); }
   }
 
@@ -225,7 +250,13 @@ export default function Home() {
         <div className="segmented"><button type="button" className={authMode === "login" ? "selected" : ""} onClick={() => setAuthMode("login")}>{t.signIn}</button><button type="button" className={authMode === "register" ? "selected" : ""} onClick={() => setAuthMode("register")}>{t.register}</button></div>
         <label>{t.email}<input className="input" name="email" type="email" autoComplete="email" placeholder={language === "ru" ? "name@example.com" : "name@example.com"} required /></label>
         <label>{t.password}<input className="input" name="password" type="password" autoComplete={authMode === "login" ? "current-password" : "new-password"} minLength={authMode === "register" ? 12 : 1} required /></label>
-        {error && <p className="alert" role="alert">{error}</p>}<button className="button primary full auth-submit" disabled={busy}>{busy ? (language === "ru" ? "Подождите…" : "Please wait…") : authMode === "login" ? t.signIn : t.register}<span>↗</span></button>
+        {error && <p className="alert" role="alert">{error}</p>}
+        {token && !profile && <div className="session-recovery">
+          {sessionChecking && <p className="muted">{t.restoringSession}</p>}
+          {!sessionChecking && !error && <p className="muted">{t.apiUnavailable}</p>}
+          <button type="button" className="button secondary full" onClick={() => setSessionRetry((value) => value + 1)} disabled={sessionChecking}>{t.retryConnection}</button>
+        </div>}
+        <button className="button primary full auth-submit" disabled={busy}>{busy ? (language === "ru" ? "Подождите…" : "Please wait…") : authMode === "login" ? t.signIn : t.register}<span>↗</span></button>
         <p className="form-note">{language === "ru" ? "Регистрация создаёт аккаунт клиента. Пароль — не менее 12 символов." : "Registration creates a customer account. Password must be at least 12 characters."}</p>
       </form>
     </div>

@@ -46,9 +46,7 @@ services:
     build:
       context: ./web
       args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8001/api/v1}
-    environment:
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8001/api/v1}
+        FIXFLOW_API_ORIGIN: http://backend:8000
     ports: ["${HOST_BIND:-127.0.0.1}:${WEB_PORT:-3000}:3000"]
     depends_on:
       backend: {condition: service_healthy}

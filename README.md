@@ -41,7 +41,7 @@ The database uses a persistent named volume. Migrations run after PostgreSQL rep
 
 ### Open the site from a phone on the same Wi-Fi
 
-Set `HOST_BIND=0.0.0.0`, add the laptop address to `CORS_ORIGINS` (for example, `http://192.168.1.20:3000`), and set `NEXT_PUBLIC_API_URL` to `http://192.168.1.20:8001/api/v1`. Rebuild the web and backend services after changing these values. Share `http://192.168.1.20:3000` with devices on the same trusted Wi-Fi. The database port remains bound to `127.0.0.1` and is not published to the LAN. Windows Firewall may ask to allow the app on private networks. This LAN address is temporary and may change when the router assigns a new address; this does not create an internet-hosted public site.
+Set `HOST_BIND=0.0.0.0` and add the laptop address to `CORS_ORIGINS` (for example, `http://192.168.1.20:3000`) for the Android app's direct API requests. The Web app calls the API through a same-origin Next.js proxy, so it does not need a separate API URL or browser CORS access. Rebuild the services after changing these values. Share `http://192.168.1.20:3000` with devices on the same trusted Wi-Fi. The database port remains bound to `127.0.0.1` and is not published to the LAN. Windows Firewall may ask to allow the app on private networks. This LAN address is temporary and may change when the router assigns a new address; this does not create an internet-hosted public site.
 
 Seed the demo data in a separate terminal after startup:
 
@@ -55,9 +55,9 @@ Seed prints the two organization IDs and demo password `FixFlow-Demo-Only-2026!`
 
 Backend: set `DATABASE_URL`, a `JWT_SECRET` of at least 32 random bytes, and `APP_ENV=development` in the shell, then from `backend/` run `uv sync`, `uv run alembic upgrade head`, and `uv run uvicorn app.main:app --reload`.
 
-Web: from `web/`, run `pnpm install --frozen-lockfile`, set `NEXT_PUBLIC_API_URL` if the API is not at `http://localhost:8001/api/v1`, then run `pnpm dev`. The browser sends requests directly to this API URL; configure `CORS_ORIGINS` if the web host changes.
+Web: from `web/`, run `pnpm install --frozen-lockfile`, then run `pnpm dev`. By default the Next.js proxy forwards `/api/v1/*` to `http://localhost:8001`; set `FIXFLOW_API_ORIGIN` only when the backend listens elsewhere. Browser requests stay on the Web origin.
 
-Mobile source is under `mobile/`; Android run and APK instructions are in `mobile/README.md`. This environment does not currently have Flutter or the Android SDK, so APK build and on-device testing have not been performed.
+Mobile source is under `mobile/`; Android run and APK instructions are in `mobile/README.md`. A prebuilt APK is not included; build it on a machine with Flutter and the Android SDK installed.
 
 ## Verification
 

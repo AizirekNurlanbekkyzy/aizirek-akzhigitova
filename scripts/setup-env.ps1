@@ -21,7 +21,6 @@ $Content = @(
     'CORS_ORIGINS=http://localhost:3000'
     'BACKEND_PORT=8000'
     'WEB_PORT=3000'
-    'NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1'
 )
 [IO.File]::WriteAllLines($EnvPath, $Content, [Text.Encoding]::ASCII)
 Write-Output 'Created .env with fresh local secrets. The file is ignored by Git.'

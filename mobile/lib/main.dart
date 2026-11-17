@@ -9,10 +9,6 @@ const apiBaseUrl = String.fromEnvironment(
   'API_BASE_URL',
   defaultValue: 'http://10.0.2.2:8001/api/v1',
 );
-const defaultOrganizationId = String.fromEnvironment(
-  'DEFAULT_ORGANIZATION_ID',
-  defaultValue: '',
-);
 const _tokenKey = 'fixflow_access_token';
 const _storage = FlutterSecureStorage();
 
@@ -61,9 +57,8 @@ class _FixFlowAppState extends State<FixFlowApp> {
   Future<void> _signIn(
     String email,
     String password,
-    String organizationId,
   ) async {
-    final token = await _api.login(email, password, organizationId);
+    final token = await _api.login(email, password);
     final profile = await _api.me(token);
     if (profile['role'] != 'TECHNICIAN') {
       throw const ApiException(
@@ -160,18 +155,13 @@ class FixFlowApi {
     return decoded;
   }
 
-  Future<String> login(
-    String email,
-    String password,
-    String organizationId,
-  ) async {
+  Future<String> login(String email, String password) async {
     final result = await _call(
       '/auth/login',
       method: 'POST',
       body: {
         'email': email,
         'password': password,
-        'organization_id': organizationId,
       },
     );
     return (result as Map<String, dynamic>)['access_token'] as String;
@@ -253,7 +243,7 @@ class TechnicianTask {
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({required this.onSignIn, super.key});
-  final Future<void> Function(String, String, String) onSignIn;
+  final Future<void> Function(String, String) onSignIn;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -263,7 +253,6 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _email = TextEditingController();
   final _password = TextEditingController();
-  final _organization = TextEditingController(text: defaultOrganizationId);
   bool _busy = false;
   bool _showPassword = false;
   String? _error;
@@ -272,7 +261,6 @@ class _LoginScreenState extends State<LoginScreen> {
   void dispose() {
     _email.dispose();
     _password.dispose();
-    _organization.dispose();
     super.dispose();
   }
 
@@ -286,7 +274,6 @@ class _LoginScreenState extends State<LoginScreen> {
       await widget.onSignIn(
         _email.text.trim(),
         _password.text,
-        _organization.text.trim(),
       );
     } catch (error) {
       if (mounted) setState(() => _error = error.toString());
@@ -354,17 +341,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     validator: (v) =>
                         v == null || v.isEmpty ? 'Введите пароль' : null,
-                  ),
-                  const SizedBox(height: 14),
-                  TextFormField(
-                    controller: _organization,
-                    decoration: const InputDecoration(
-                      labelText: 'ID организации',
-                      prefixIcon: Icon(Icons.business_outlined),
-                    ),
-                    validator: (v) => v == null || v.trim().isEmpty
-                        ? 'Укажите ID организации'
-                        : null,
                   ),
                   if (_error != null) ...[
                     const SizedBox(height: 14),

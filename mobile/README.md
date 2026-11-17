@@ -18,10 +18,12 @@ From this `mobile` directory, run:
 
 ```powershell
 flutter pub get
-flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8001/api/v1 --dart-define=DEFAULT_ORGANIZATION_ID=<organization-id>
+flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8001/api/v1
 ```
 
-Use the organization ID printed by `docker compose exec backend uv run --no-sync python -m app.seed`. The API must be running on port 8001.
+Sign in with the technician's email and password. The API resolves the organization from the account when that email matches exactly one active user. The API must be running on port 8001.
+
+On this Windows computer, double-click `RUN_FIXFLOW_ANDROID.bat` in this directory to build and install the app on the already running emulator. Leave its command window open while using the app.
 
 If the emulator cannot start because hardware acceleration is unavailable, enable **Windows Hypervisor Platform** in Windows Features and restart Windows. An emulator also needs several gigabytes of free disk space. A physical Android phone can be used instead.
 
@@ -30,7 +32,7 @@ If the emulator cannot start because hardware acceleration is unavailable, enabl
 Connect the phone and computer to the same trusted Wi-Fi network. Configure the API to listen on the LAN (for example, set `HOST_BIND=0.0.0.0` in the ignored project `.env`) and allow port 8001 through Windows Firewall for the private network. Find the computer's LAN IPv4 address, then run:
 
 ```powershell
-flutter run --dart-define=API_BASE_URL=http://<computer-lan-ip>:8001/api/v1 --dart-define=DEFAULT_ORGANIZATION_ID=<organization-id>
+flutter run --dart-define=API_BASE_URL=http://<computer-lan-ip>:8001/api/v1
 ```
 
 For a deployed service, use HTTPS instead of cleartext HTTP.
@@ -40,13 +42,13 @@ For a deployed service, use HTTPS instead of cleartext HTTP.
 A debug APK can be built for local installation with:
 
 ```powershell
-flutter build apk --debug --dart-define=API_BASE_URL=http://10.0.2.2:8001/api/v1 --dart-define=DEFAULT_ORGANIZATION_ID=<organization-id>
+flutter build apk --debug --dart-define=API_BASE_URL=http://10.0.2.2:8001/api/v1
 ```
 
 A release APK for deployment must use the public HTTPS API address and a configured signing key:
 
 ```powershell
-flutter build apk --release --dart-define=API_BASE_URL=https://<your-api-host>/api/v1 --dart-define=DEFAULT_ORGANIZATION_ID=<organization-id>
+flutter build apk --release --dart-define=API_BASE_URL=https://<your-api-host>/api/v1
 ```
 
 APK output: `build/app/outputs/flutter-apk/app-debug.apk` (debug) or `app-release.apk` (release).

@@ -1,4 +1,13 @@
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1";
+// Keep API requests on the same origin as the web app. Next.js proxies this
+// path to the backend, so localhost/LAN access and browser CORS stay consistent.
+const API = "/api/v1";
+
+export class ApiError extends Error {
+  constructor(message: string, readonly status?: number) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
 
 export type Role = "CUSTOMER" | "DISPATCHER" | "ORGANIZATION_ADMIN" | "TECHNICIAN";
 export type UserProfile = { id: string; name: string; email: string; role: Role };
@@ -34,10 +43,18 @@ async function call<T>(path: string, token?: string, init: RequestInit = {}): Pr
   const headers = new Headers(init.headers);
   if (token) headers.set("Authorization", `Bearer ${token}`);
   if (init.body && !(init.body instanceof FormData)) headers.set("Content-Type", "application/json");
-  const response = await fetch(`${API}${path}`, { ...init, headers, cache: "no-store" });
+  let response: Response;
+  try {
+    response = await fetch(`${API}${path}`, { ...init, headers, cache: "no-store" });
+  } catch (cause) {
+    if (cause instanceof TypeError) {
+      throw new ApiError("API_UNAVAILABLE");
+    }
+    throw cause;
+  }
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
-    throw new Error(typeof body.detail === "string" ? body.detail : `Request failed (${response.status})`);
+    throw new ApiError(typeof body.detail === "string" ? body.detail : `Request failed (${response.status})`, response.status);
   }
   return response.json() as Promise<T>;
 }
